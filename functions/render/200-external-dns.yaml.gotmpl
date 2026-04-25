@@ -39,6 +39,7 @@ spec:
       {{- toYaml $state.externalDNS.overrideAllValues | nindent 6 }}
     {{- else }}
     values:
+      fullnameOverride: external-dns
       provider:
         name: cloudflare
       sources:
@@ -47,7 +48,7 @@ spec:
       policy: upsert-only
       registry: txt
       interval: 1m
-      extraEnvVars:
+      env:
         - name: CF_API_TOKEN
           valueFrom:
             secretKeyRef:
