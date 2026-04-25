@@ -1,0 +1,33 @@
+# code: language=yaml
+#
+# Compute status values from observed state
+#
+
+{{- $observed := $.observed.resources | default dict }}
+
+# Check if external-dns helm release is ready
+{{- $ednsHelmObs := get $observed "helm-release-external-dns" | default dict }}
+{{- $ednsHelmResource := $ednsHelmObs.resource | default dict }}
+{{- $ednsHelmStatus := $ednsHelmResource.status | default dict }}
+{{- $ednsHelmConditions := $ednsHelmStatus.conditions | default list }}
+{{- $ednsHelmReady := false }}
+{{- range $cond := $ednsHelmConditions }}
+  {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
+    {{- $ednsHelmReady = true }}
+  {{- end }}
+{{- end }}
+
+# ==============================================================================
+# Compute status output
+# ==============================================================================
+{{- $ready := false }}
+
+{{- $state = set $state "observed" (dict
+  "externalDNS" (dict
+    "helmReady" $ednsHelmReady
+  )
+) }}
+
+{{- $state = set $state "status" (dict
+  "ready" $ready
+) }}

@@ -1,0 +1,32 @@
+apiVersion: cloudflare.hops.ops.com.ai/v1alpha1
+kind: DNSStack
+metadata:
+  name: dns
+  namespace: default
+spec:
+  clusterName: prod-cluster
+  domains:
+  - name: example.com
+  - name: internal.example.com
+  apiToken:
+    secretName: cloudflare-api-token
+    secretKey: api-token
+  externalDNS:
+    enabled: true
+  certManager:
+    enabled: true
+    name: cert-manager
+    namespace: cert-manager
+  clusterIssuer:
+    enabled: true
+    email: platform@example.com
+    staging: false
+  externalSecrets:
+    enabled: true
+    secretStoreRef:
+      name: aws-secrets
+      kind: ClusterSecretStore
+    remoteRef:
+      key: prod/cloudflare/api-token
+      property: token
+    refreshInterval: 1h

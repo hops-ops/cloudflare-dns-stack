@@ -1,0 +1,73 @@
+# code: language=yaml
+#
+# cert-manager integration — Let's Encrypt DNS-01 ClusterIssuer using
+# Cloudflare as the solver. Reads the same Cloudflare API token Secret as
+# ExternalDNS, but in the cert-manager namespace.
+#
+# This stack does NOT install cert-manager. Setting spec.certManager.enabled
+# to true means "cert-manager is available; render the integration": the
+# ClusterIssuer Object below + a deletion-ordering Usage that holds the
+# external cert-manager Release until this ClusterIssuer is gone.
+#
+
+{{- if and $state.clusterIssuer.enabled $state.certManager.enabled }}
+
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  name: {{ $state.name }}-cluster-issuer
+  annotations:
+    {{ setResourceNameAnnotation "cluster-issuer" }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  forProvider:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: {{ $state.clusterIssuer.name }}
+      spec:
+        acme:
+          {{- if $state.clusterIssuer.email }}
+          email: {{ $state.clusterIssuer.email }}
+          {{- end }}
+          server: {{ $state.clusterIssuer.server }}
+          privateKeySecretRef:
+            name: {{ $state.clusterIssuer.name }}-account-key
+          solvers:
+          - dns01:
+              cloudflare:
+                apiTokenSecretRef:
+                  name: {{ $state.apiToken.secretName }}
+                  key: {{ $state.apiToken.secretKey }}
+  providerConfigRef:
+    name: {{ $state.kubernetes.providerConfigRef.name }}
+    kind: {{ $state.kubernetes.providerConfigRef.kind }}
+
+{{- /* Usage: hold the external cert-manager Helm Release until this           */}}
+{{- /* ClusterIssuer is deleted. The Release is composed by another stack       */}}
+{{- /* (e.g. aws-cert-stack). Override spec.certManager.name if your Release   */}}
+{{- /* uses a different metadata.name than the default ("cert-manager").       */}}
+---
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ $state.name }}-delete-cluster-issuer-before-cert-manager
+  annotations:
+    {{ setResourceNameAnnotation "usage-cm-cluster-issuer" }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: helm.m.crossplane.io/v1beta1
+    kind: Release
+    resourceRef:
+      name: {{ $state.certManager.releaseName }}
+  by:
+    apiVersion: kubernetes.m.crossplane.io/v1alpha1
+    kind: Object
+    resourceRef:
+      name: {{ $state.name }}-cluster-issuer
+
+{{- end }}

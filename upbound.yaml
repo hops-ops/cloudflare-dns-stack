@@ -1,0 +1,34 @@
+apiVersion: meta.dev.upbound.io/v2alpha1
+kind: Project
+metadata:
+  name: cloudflare-dns-stack
+spec:
+  dependsOn:
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready
+    version: '>=v0.6.3'
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    package: xpkg.crossplane.io/crossplane-contrib/provider-helm
+    version: '>=v1'
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    package: xpkg.crossplane.io/crossplane-contrib/provider-kubernetes
+    version: '>=v1'
+  description: ExternalDNS configured for Cloudflare, with optional cert-manager DNS-01
+    ClusterIssuer integration. When spec.externalSecrets.enabled is true, composes
+    ExternalSecret resources to populate the Cloudflare API token Secret in the ExternalDNS
+    namespace and (when certManager.enabled) the cert-manager namespace. This stack
+    does NOT install cert-manager — pair with a stack that does (or a hand-installed
+    cert-manager) when certManager.enabled is true.
+  license: Apache-2.0
+  maintainer: Patrick Lee Scott <pat@patscott.io>
+  readme: |
+    # cloudflare-dns-stack
+
+    ExternalDNS configured for Cloudflare, plus an optional Let's Encrypt
+    DNS-01 ClusterIssuer using Cloudflare. Provides a simple DX for
+    populating the Cloudflare API token from an ExternalSecrets backend.
+  repository: ghcr.io/hops-ops/cloudflare-dns-stack
+  source: github.com/hops-ops/cloudflare-dns-stack

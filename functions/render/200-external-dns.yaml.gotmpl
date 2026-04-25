@@ -1,0 +1,65 @@
+# code: language=yaml
+#
+# ExternalDNS — Helm Release configured for Cloudflare.
+#
+# Reads the Cloudflare API token from a K8s Secret in the ExternalDNS
+# namespace (default name "cloudflare-api-token", key "api-token"). Use the
+# externalSecrets DX (see 100-external-secrets.yaml.gotmpl) to populate that
+# Secret from a backend, or create it manually.
+#
+
+{{- if $state.externalDNS.enabled }}
+
+{{- /* Merge domainFilters from spec.domains into ExternalDNS values when */}}
+{{- /* the user hasn't gone full overrideAllValues.                       */}}
+{{- $ednsValues := $state.externalDNS.values | default dict }}
+{{- if and (gt (len $state.domainNames) 0) (eq (len $state.externalDNS.overrideAllValues) 0) }}
+  {{- $domainValues := dict "domainFilters" $state.domainNames }}
+  {{- $ednsValues = mergeOverwrite $domainValues $ednsValues }}
+{{- end }}
+
+---
+apiVersion: helm.m.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: {{ $state.externalDNS.releaseName }}
+  annotations:
+    {{ setResourceNameAnnotation "helm-release-external-dns" }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  forProvider:
+    chart:
+      name: external-dns
+      repository: https://kubernetes-sigs.github.io/external-dns/
+      version: 1.20.0
+    namespace: {{ $state.externalDNS.namespace }}
+    {{- if gt (len $state.externalDNS.overrideAllValues) 0 }}
+    values:
+      {{- toYaml $state.externalDNS.overrideAllValues | nindent 6 }}
+    {{- else }}
+    values:
+      provider:
+        name: cloudflare
+      sources:
+        - service
+        - ingress
+      policy: upsert-only
+      registry: txt
+      interval: 1m
+      extraEnvVars:
+        - name: CF_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ $state.apiToken.secretName }}
+              key: {{ $state.apiToken.secretKey }}
+      {{- if $ednsValues }}
+      {{- toYaml $ednsValues | nindent 6 }}
+      {{- end }}
+    {{- end }}
+  rollbackLimit: 3
+  providerConfigRef:
+    name: {{ $state.helm.providerConfigRef.name }}
+    kind: {{ $state.helm.providerConfigRef.kind }}
+
+{{- end }}

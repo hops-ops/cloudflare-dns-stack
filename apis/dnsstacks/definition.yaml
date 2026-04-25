@@ -1,0 +1,186 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: dnsstacks.cloudflare.hops.ops.com.ai
+spec:
+  group: cloudflare.hops.ops.com.ai
+  names:
+    kind: DNSStack
+    plural: dnsstacks
+  scope: Namespaced
+  defaultCompositeDeletePolicy: Foreground
+  versions:
+  - name: v1alpha1
+    referenceable: true
+    served: true
+    schema:
+      openAPIV3Schema:
+        description: DNSStack deploys ExternalDNS for Cloudflare and (optionally) the cert-manager DNS-01 ClusterIssuer integration. The cert-manager Helm release is NOT installed by this stack.
+        type: object
+        properties:
+          spec:
+            description: DNSStackSpec defines the desired state.
+            type: object
+            properties:
+              clusterName:
+                description: Name of the target cluster. Used for provider config defaults and resource naming.
+                type: string
+              managementPolicies:
+                description: Management policies for all composed resources. Defaults to ["*"].
+                type: array
+                items:
+                  type: string
+                default:
+                - "*"
+              labels:
+                description: Custom labels applied to all managed resources.
+                type: object
+                additionalProperties:
+                  type: string
+                x-kubernetes-preserve-unknown-fields: true
+              helmProviderConfigRef:
+                description: Reference to the Helm ProviderConfig. Defaults to clusterName.
+                type: object
+                properties:
+                  name:
+                    description: Name of the Helm ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+                    enum:
+                    - ProviderConfig
+                    - ClusterProviderConfig
+              kubernetesProviderConfigRef:
+                description: Reference to the Kubernetes ProviderConfig. Defaults to clusterName.
+                type: object
+                properties:
+                  name:
+                    description: Name of the Kubernetes ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+                    enum:
+                    - ProviderConfig
+                    - ClusterProviderConfig
+              apiToken:
+                description: K8s Secret carrying the Cloudflare API token. ExternalDNS reads it as CF_API_TOKEN; cert-manager reads it as the DNS-01 solver's apiTokenSecretRef. The same Secret name + key is expected in each consumer namespace; ExternalSecrets integration (when enabled) populates them.
+                type: object
+                properties:
+                  secretName:
+                    description: Name of the K8s Secret. Defaults to "cloudflare-api-token".
+                    type: string
+                  secretKey:
+                    description: Key within the Secret holding the token. Defaults to "api-token".
+                    type: string
+              domains:
+                description: Optional list of domains to limit ExternalDNS to (populates domainFilters). Empty means ExternalDNS sees every zone the API token can access.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      description: Domain name (e.g. example.com).
+                      type: string
+                  required:
+                  - name
+              externalDNS:
+                description: ExternalDNS configuration.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to deploy ExternalDNS. Defaults to true.
+                    type: boolean
+                    default: true
+                  namespace:
+                    description: Namespace for the Helm release. Defaults to "external-dns".
+                    type: string
+                  name:
+                    description: Name override for the Helm release. Defaults to "<xr.name>-edns".
+                    type: string
+                  values:
+                    description: Helm values merged on top of defaults.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  overrideAllValues:
+                    description: Replaces all default Helm values entirely.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+              certManager:
+                description: cert-manager integration. This stack does NOT install cert-manager — install it separately. When enabled, this stack composes only the integration resources (ClusterIssuer + a deletion-ordering Usage referencing the external Helm Release).
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to render the cert-manager integration (ClusterIssuer + Usage). Defaults to true.
+                    type: boolean
+                    default: true
+                  name:
+                    description: metadata.name of the external cert-manager Helm Release in the control plane (used by the deletion-ordering Usage). Defaults to "cert-manager".
+                    type: string
+                  namespace:
+                    description: Namespace where cert-manager runs and where its API token Secret lives. Defaults to "cert-manager".
+                    type: string
+              clusterIssuer:
+                description: ClusterIssuer configuration (Let's Encrypt with DNS-01 Cloudflare). Only rendered when certManager.enabled is true.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to create a ClusterIssuer. Defaults to true.
+                    type: boolean
+                    default: true
+                  name:
+                    description: Name of the ClusterIssuer. Defaults to "letsencrypt-prod" (or "letsencrypt-staging" when staging is true).
+                    type: string
+                  email:
+                    description: Email address for Let's Encrypt registration.
+                    type: string
+                  server:
+                    description: ACME server URL. Overrides the default based on the staging flag.
+                    type: string
+                  staging:
+                    description: Use Let's Encrypt staging server. Defaults to false.
+                    type: boolean
+              externalSecrets:
+                description: ExternalSecrets DX. When enabled, the stack composes an ExternalSecret resource per consumer namespace (external-dns and, when certManager.enabled, the cert-manager namespace) to populate the apiToken Secret from a backend.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to compose ExternalSecret resources. Defaults to false (user brings own Secret).
+                    type: boolean
+                    default: false
+                  secretStoreRef:
+                    description: Reference to the SecretStore or ClusterSecretStore that holds the Cloudflare API token.
+                    type: object
+                    properties:
+                      name:
+                        description: Name of the SecretStore / ClusterSecretStore.
+                        type: string
+                      kind:
+                        description: Kind of the store. Defaults to ClusterSecretStore.
+                        type: string
+                        enum:
+                        - SecretStore
+                        - ClusterSecretStore
+                  remoteRef:
+                    description: Backend pointer for the Cloudflare API token.
+                    type: object
+                    properties:
+                      key:
+                        description: Backend key / path (e.g. "secret/cloudflare/api-token").
+                        type: string
+                      property:
+                        description: Property within the backend secret holding the token (e.g. "token"). Optional for backends that store a single value per key.
+                        type: string
+                  refreshInterval:
+                    description: How often the ExternalSecret refreshes. Defaults to "1h".
+                    type: string
+            required:
+            - clusterName
+          status:
+            description: DNSStackStatus defines the observed state.
+            type: object
+            properties:
+              ready:
+                description: Whether all components are ready.
+                type: boolean

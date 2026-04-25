@@ -1,0 +1,11 @@
+apiVersion: cloudflare.hops.ops.com.ai/v1alpha1
+kind: DNSStack
+metadata:
+  name: dns
+  namespace: default
+spec:
+  clusterName: my-cluster
+  domains:
+  - name: example.com
+  clusterIssuer:
+    email: admin@example.com

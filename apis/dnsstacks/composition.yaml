@@ -1,0 +1,16 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: dnsstacks.cloudflare.hops.ops.com.ai
+spec:
+  compositeTypeRef:
+    apiVersion: cloudflare.hops.ops.com.ai/v1alpha1
+    kind: DNSStack
+  mode: Pipeline
+  pipeline:
+  - functionRef:
+      name: hops-ops-cloudflare-dns-stackrender
+    step: render
+  - functionRef:
+      name: crossplane-contrib-function-auto-ready
+    step: crossplane-contrib-function-auto-ready

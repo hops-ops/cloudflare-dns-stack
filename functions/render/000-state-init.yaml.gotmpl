@@ -1,0 +1,174 @@
+# code: language=yaml
+#
+# Initialize $state with spec defaults
+#
+
+{{- $xr := getCompositeResource . }}
+{{- $spec := $xr.spec | default dict }}
+{{- $metadata := $xr.metadata | default dict }}
+
+# ==============================================================================
+# Core defaults
+# ==============================================================================
+{{- $name := $metadata.name | default "dns" }}
+{{- $clusterName := $spec.clusterName | default $name }}
+{{- $managementPolicies := $spec.managementPolicies | default (list "*") }}
+
+# Labels
+{{- $kindKey := printf "hops.ops.com.ai/%s" (lower $xr.kind) }}
+{{- $defaultLabels := dict
+  "hops.ops.com.ai/managed" "true"
+  $kindKey $name
+}}
+{{- $labels := mergeOverwrite (dict) $defaultLabels ($spec.labels | default dict) }}
+
+# ==============================================================================
+# Provider config refs
+# ==============================================================================
+{{- $helmProviderConfigRef := $spec.helmProviderConfigRef | default dict }}
+{{- $helmProviderConfigRef = dict
+  "name" ($helmProviderConfigRef.name | default $clusterName)
+  "kind" ($helmProviderConfigRef.kind | default "ProviderConfig")
+}}
+
+{{- $kubernetesProviderConfigRef := $spec.kubernetesProviderConfigRef | default dict }}
+{{- $kubernetesProviderConfigRef = dict
+  "name" ($kubernetesProviderConfigRef.name | default $clusterName)
+  "kind" ($kubernetesProviderConfigRef.kind | default "ProviderConfig")
+}}
+
+# ==============================================================================
+# Cloudflare API token Secret reference
+# ==============================================================================
+{{- $apiToken := $spec.apiToken | default dict }}
+{{- $apiTokenSecretName := $apiToken.secretName | default "cloudflare-api-token" }}
+{{- $apiTokenSecretKey := $apiToken.secretKey | default "api-token" }}
+
+# ==============================================================================
+# ExternalDNS config
+# ==============================================================================
+{{- $edns := $spec.externalDNS | default dict }}
+{{- $ednsEnabled := true }}
+{{- if hasKey $edns "enabled" }}
+  {{- $ednsEnabled = $edns.enabled }}
+{{- end }}
+
+{{- $ednsNamespace := $edns.namespace | default "external-dns" }}
+{{- $ednsReleaseName := $edns.name | default (printf "%s-edns" $name) }}
+
+# ==============================================================================
+# CertManager integration
+# ==============================================================================
+# This stack does NOT install cert-manager. cert-manager is expected to be
+# installed separately. When enabled, only the integration resources render
+# (ClusterIssuer Object + deletion-ordering Usage).
+{{- $cm := $spec.certManager | default dict }}
+{{- $cmEnabled := true }}
+{{- if hasKey $cm "enabled" }}
+  {{- $cmEnabled = $cm.enabled }}
+{{- end }}
+{{- $cmReleaseName := $cm.name | default "cert-manager" }}
+{{- $cmNamespace := $cm.namespace | default "cert-manager" }}
+
+# ==============================================================================
+# ClusterIssuer config
+# ==============================================================================
+{{- $ci := $spec.clusterIssuer | default dict }}
+{{- $ciEnabled := true }}
+{{- if hasKey $ci "enabled" }}
+  {{- $ciEnabled = $ci.enabled }}
+{{- end }}
+
+{{- $ciStaging := false }}
+{{- if hasKey $ci "staging" }}
+  {{- $ciStaging = $ci.staging }}
+{{- end }}
+{{- $ciServer := "https://acme-v02.api.letsencrypt.org/directory" }}
+{{- if $ciStaging }}
+  {{- $ciServer = "https://acme-staging-v02.api.letsencrypt.org/directory" }}
+{{- end }}
+{{- if $ci.server }}
+  {{- $ciServer = $ci.server }}
+{{- end }}
+
+{{- $ciName := "letsencrypt-prod" }}
+{{- if $ciStaging }}
+  {{- $ciName = "letsencrypt-staging" }}
+{{- end }}
+{{- if $ci.name }}
+  {{- $ciName = $ci.name }}
+{{- end }}
+
+# ==============================================================================
+# ExternalSecrets DX
+# ==============================================================================
+{{- $eso := $spec.externalSecrets | default dict }}
+{{- $esoEnabled := false }}
+{{- if hasKey $eso "enabled" }}
+  {{- $esoEnabled = $eso.enabled }}
+{{- end }}
+{{- $esoStoreRef := $eso.secretStoreRef | default dict }}
+{{- $esoStoreRef = dict
+  "name" ($esoStoreRef.name | default "")
+  "kind" ($esoStoreRef.kind | default "ClusterSecretStore")
+}}
+{{- $esoRemoteRef := $eso.remoteRef | default dict }}
+{{- $esoRefreshInterval := $eso.refreshInterval | default "1h" }}
+
+# ==============================================================================
+# Domains
+# ==============================================================================
+{{- $domains := $spec.domains | default list }}
+{{- $domainNames := list }}
+{{- range $d := $domains }}
+  {{- $domainNames = append $domainNames $d.name }}
+{{- end }}
+
+# ==============================================================================
+# Initialize $state
+# ==============================================================================
+{{- $state := dict
+  "name" $name
+  "clusterName" $clusterName
+  "managementPolicies" $managementPolicies
+  "labels" $labels
+  "helm" (dict
+    "providerConfigRef" $helmProviderConfigRef
+  )
+  "kubernetes" (dict
+    "providerConfigRef" $kubernetesProviderConfigRef
+  )
+  "apiToken" (dict
+    "secretName" $apiTokenSecretName
+    "secretKey" $apiTokenSecretKey
+  )
+  "domains" $domains
+  "domainNames" $domainNames
+  "externalDNS" (dict
+    "enabled" $ednsEnabled
+    "namespace" $ednsNamespace
+    "releaseName" $ednsReleaseName
+    "values" ($edns.values | default dict)
+    "overrideAllValues" ($edns.overrideAllValues | default dict)
+  )
+  "certManager" (dict
+    "enabled" $cmEnabled
+    "releaseName" $cmReleaseName
+    "namespace" $cmNamespace
+  )
+  "clusterIssuer" (dict
+    "enabled" $ciEnabled
+    "name" $ciName
+    "email" ($ci.email | default "")
+    "server" $ciServer
+  )
+  "externalSecrets" (dict
+    "enabled" $esoEnabled
+    "secretStoreRef" $esoStoreRef
+    "remoteRef" (dict
+      "key" ($esoRemoteRef.key | default "")
+      "property" ($esoRemoteRef.property | default "")
+    )
+    "refreshInterval" $esoRefreshInterval
+  )
+}}
