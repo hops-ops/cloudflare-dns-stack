@@ -99,6 +99,14 @@ spec:
                   name:
                     description: Name override for the Helm release. Defaults to "<xr.name>-edns".
                     type: string
+                  istio:
+                    description: Istio integration. When enabled, ExternalDNS additionally watches Istio VirtualServices and Gateways so Knative-on-Istio (and any other Istio-routed) services auto-publish per-host DNS records.
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether to add istio-virtualservice and istio-gateway sources. Defaults to false.
+                        type: boolean
+                        default: false
                   values:
                     description: Helm values merged on top of defaults.
                     type: object
@@ -150,11 +158,11 @@ spec:
                     type: boolean
                     default: false
                   secretStoreRef:
-                    description: Reference to the SecretStore or ClusterSecretStore that holds the Cloudflare API token.
+                    description: Reference to the SecretStore or ClusterSecretStore that holds the Cloudflare API token. Defaults to the platform-wide ClusterSecretStore "hops-aws-secrets-manager" composed by aws-secret-stack — override only when integrating with a different backend.
                     type: object
                     properties:
                       name:
-                        description: Name of the SecretStore / ClusterSecretStore.
+                        description: Name of the SecretStore / ClusterSecretStore. Defaults to "hops-aws-secrets-manager".
                         type: string
                       kind:
                         description: Kind of the store. Defaults to ClusterSecretStore.

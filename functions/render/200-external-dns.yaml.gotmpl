@@ -42,9 +42,7 @@ spec:
       fullnameOverride: external-dns
       provider:
         name: cloudflare
-      sources:
-        - service
-        - ingress
+      sources: {{ toJson $state.externalDNS.sources }}
       policy: upsert-only
       registry: txt
       interval: 1m

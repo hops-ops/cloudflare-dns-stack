@@ -13,6 +13,10 @@ spec:
     secretKey: api-token
   externalDNS:
     enabled: true
+    # Toggle on to publish DNS for Istio VirtualServices/Gateways
+    # (e.g. Knative-on-Istio routes).
+    istio:
+      enabled: true
   certManager:
     enabled: true
     name: cert-manager
@@ -21,12 +25,10 @@ spec:
     enabled: true
     email: platform@example.com
     staging: false
+  # Pulls the Cloudflare API token from AWS Secrets Manager via the
+  # platform-wide hops-aws-secrets-manager ClusterSecretStore.
   externalSecrets:
     enabled: true
-    secretStoreRef:
-      name: aws-secrets
-      kind: ClusterSecretStore
     remoteRef:
       key: prod/cloudflare/api-token
       property: token
-    refreshInterval: 1h

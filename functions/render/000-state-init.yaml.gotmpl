@@ -56,6 +56,18 @@
 {{- $ednsNamespace := $edns.namespace | default "external-dns" }}
 {{- $ednsReleaseName := $edns.name | default (printf "%s-edns" $name) }}
 
+# Sources: baseline (service + ingress); extend when istio integration enabled.
+{{- $ednsIstio := $edns.istio | default dict }}
+{{- $ednsIstioEnabled := false }}
+{{- if hasKey $ednsIstio "enabled" }}
+  {{- $ednsIstioEnabled = $ednsIstio.enabled }}
+{{- end }}
+{{- $ednsSources := list "service" "ingress" }}
+{{- if $ednsIstioEnabled }}
+  {{- $ednsSources = append $ednsSources "istio-virtualservice" }}
+  {{- $ednsSources = append $ednsSources "istio-gateway" }}
+{{- end }}
+
 # ==============================================================================
 # CertManager integration
 # ==============================================================================
@@ -109,7 +121,7 @@
 {{- end }}
 {{- $esoStoreRef := $eso.secretStoreRef | default dict }}
 {{- $esoStoreRef = dict
-  "name" ($esoStoreRef.name | default "")
+  "name" ($esoStoreRef.name | default "hops-aws-secrets-manager")
   "kind" ($esoStoreRef.kind | default "ClusterSecretStore")
 }}
 {{- $esoRemoteRef := $eso.remoteRef | default dict }}
@@ -148,6 +160,8 @@
     "enabled" $ednsEnabled
     "namespace" $ednsNamespace
     "releaseName" $ednsReleaseName
+    "sources" $ednsSources
+    "istioEnabled" $ednsIstioEnabled
     "values" ($edns.values | default dict)
     "overrideAllValues" ($edns.overrideAllValues | default dict)
   )
