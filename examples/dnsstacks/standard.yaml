@@ -13,9 +13,9 @@ spec:
     secretKey: api-token
   externalDNS:
     enabled: true
-    # Toggle on to publish DNS for Istio VirtualServices/Gateways
-    # (e.g. Knative-on-Istio routes).
-    istio:
+    # Toggle on to publish DNS for Gateway API HTTPRoutes
+    # (e.g. Knative-on-net-gateway-api routes, Istio Ambient routes).
+    gatewayApi:
       enabled: true
   certManager:
     enabled: true

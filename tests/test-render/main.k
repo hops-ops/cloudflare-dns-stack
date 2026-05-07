@@ -422,7 +422,77 @@ _items = [
     }
 
     # ==========================================================================
-    # Test 8: certManager.name override flows to the protection Usage.
+    # Test 8: externalDNS.gatewayApi.enabled adds the gateway-httproute source
+    # alongside the baseline service+ingress sources. With it off, only the
+    # baseline sources render — no Istio CRD watches.
+    # ==========================================================================
+    metav1alpha1.CompositionTest {
+        metadata.name = "gateway-api-toggle-adds-httproute-source"
+        spec = {
+            compositionPath = "apis/dnsstacks/composition.yaml"
+            xrdPath = "apis/dnsstacks/definition.yaml"
+            timeoutSeconds = 60
+            validate = False
+            xr = {
+                apiVersion = "cloudflare.hops.ops.com.ai/v1alpha1"
+                kind = "DNSStack"
+                metadata.name = "dns"
+                spec = {
+                    clusterName = "my-cluster"
+                    externalDNS.gatewayApi.enabled = True
+                    clusterIssuer.email = "admin@example.com"
+                }
+            }
+            assertResources = [
+                {
+                    apiVersion = "helm.m.crossplane.io/v1beta1"
+                    kind = "Release"
+                    metadata.name = "dns-edns"
+                    spec.forProvider.values.sources = [
+                        "service"
+                        "ingress"
+                        "gateway-httproute"
+                    ]
+                }
+            ]
+        }
+    }
+
+    # ==========================================================================
+    # Test 9: gatewayApi.enabled defaults to false — no gateway-httproute source.
+    # ==========================================================================
+    metav1alpha1.CompositionTest {
+        metadata.name = "gateway-api-disabled-by-default"
+        spec = {
+            compositionPath = "apis/dnsstacks/composition.yaml"
+            xrdPath = "apis/dnsstacks/definition.yaml"
+            timeoutSeconds = 60
+            validate = False
+            xr = {
+                apiVersion = "cloudflare.hops.ops.com.ai/v1alpha1"
+                kind = "DNSStack"
+                metadata.name = "dns"
+                spec = {
+                    clusterName = "my-cluster"
+                    clusterIssuer.email = "admin@example.com"
+                }
+            }
+            assertResources = [
+                {
+                    apiVersion = "helm.m.crossplane.io/v1beta1"
+                    kind = "Release"
+                    metadata.name = "dns-edns"
+                    spec.forProvider.values.sources = [
+                        "service"
+                        "ingress"
+                    ]
+                }
+            ]
+        }
+    }
+
+    # ==========================================================================
+    # Test 10: certManager.name override flows to the protection Usage.
     # ==========================================================================
     metav1alpha1.CompositionTest {
         metadata.name = "cert-manager-name-override-flows-to-usage"

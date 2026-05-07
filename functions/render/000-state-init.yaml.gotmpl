@@ -56,16 +56,25 @@
 {{- $ednsNamespace := $edns.namespace | default "external-dns" }}
 {{- $ednsReleaseName := $edns.name | default (printf "%s-edns" $name) }}
 
-# Sources: baseline (service + ingress); extend when istio integration enabled.
+# Sources: baseline (service + ingress); extend when istio and/or gatewayApi
+# integrations are enabled. Both can be on at once during a migration.
 {{- $ednsIstio := $edns.istio | default dict }}
 {{- $ednsIstioEnabled := false }}
 {{- if hasKey $ednsIstio "enabled" }}
   {{- $ednsIstioEnabled = $ednsIstio.enabled }}
 {{- end }}
+{{- $ednsGatewayApi := $edns.gatewayApi | default dict }}
+{{- $ednsGatewayApiEnabled := false }}
+{{- if hasKey $ednsGatewayApi "enabled" }}
+  {{- $ednsGatewayApiEnabled = $ednsGatewayApi.enabled }}
+{{- end }}
 {{- $ednsSources := list "service" "ingress" }}
 {{- if $ednsIstioEnabled }}
   {{- $ednsSources = append $ednsSources "istio-virtualservice" }}
   {{- $ednsSources = append $ednsSources "istio-gateway" }}
+{{- end }}
+{{- if $ednsGatewayApiEnabled }}
+  {{- $ednsSources = append $ednsSources "gateway-httproute" }}
 {{- end }}
 
 # ==============================================================================
@@ -162,6 +171,7 @@
     "releaseName" $ednsReleaseName
     "sources" $ednsSources
     "istioEnabled" $ednsIstioEnabled
+    "gatewayApiEnabled" $ednsGatewayApiEnabled
     "values" ($edns.values | default dict)
     "overrideAllValues" ($edns.overrideAllValues | default dict)
   )

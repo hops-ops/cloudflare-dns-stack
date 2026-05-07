@@ -100,11 +100,19 @@ spec:
                     description: Name override for the Helm release. Defaults to "<xr.name>-edns".
                     type: string
                   istio:
-                    description: Istio integration. When enabled, ExternalDNS additionally watches Istio VirtualServices and Gateways so Knative-on-Istio (and any other Istio-routed) services auto-publish per-host DNS records.
+                    description: Istio integration. When enabled, ExternalDNS additionally watches Istio VirtualServices and Gateways so Knative-on-Istio (and any other Istio-routed) services auto-publish per-host DNS records. Independent of gatewayApi; both can be enabled during a migration.
                     type: object
                     properties:
                       enabled:
-                        description: Whether to add istio-virtualservice and istio-gateway sources. Defaults to false.
+                        description: Whether to add the istio-virtualservice and istio-gateway sources. Defaults to false.
+                        type: boolean
+                        default: false
+                  gatewayApi:
+                    description: Gateway API integration. When enabled, ExternalDNS additionally watches Gateway API HTTPRoutes (and their parent Gateways for host inheritance) so Knative-on-Gateway-API (and any other HTTPRoute-fronted) services auto-publish per-host DNS records. Implementation-agnostic — works with any Gateway API conformant controller (Istio Ambient, Envoy Gateway, Cilium Gateway, etc.).
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether to add the gateway-httproute source. Defaults to false.
                         type: boolean
                         default: false
                   values:
