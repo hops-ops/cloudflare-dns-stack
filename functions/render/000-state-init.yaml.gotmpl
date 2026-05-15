@@ -121,6 +121,45 @@
 {{- end }}
 
 # ==============================================================================
+# Wildcard Certificate(s)
+#
+# For each entry in $spec.wildcardCertificate.domains, compose a
+# cert-manager.io/v1 Certificate for "*.<domain>" in $wcNamespace, with the
+# resulting TLS Secret living in the same namespace (so the platform Gateway
+# in istio-ingress can resolve certificateRefs without cross-ns hops).
+#
+# Defaults: namespace=istio-ingress, issuerRef=ClusterIssuer/<ciName>
+# (this stack's own ClusterIssuer), renewBefore=360h.
+# Secret name defaults to "wildcard-<domain-dots-as-dashes>".
+# ==============================================================================
+{{- $wc := $spec.wildcardCertificate | default dict }}
+{{- $wcEnabled := false }}
+{{- if hasKey $wc "enabled" }}
+  {{- $wcEnabled = $wc.enabled }}
+{{- end }}
+{{- $wcNamespace := $wc.namespace | default "istio-ingress" }}
+{{- $wcRenewBefore := $wc.renewBefore | default "360h" }}
+{{- $wcIssuerRef := $wc.issuerRef | default dict }}
+{{- $wcIssuerRef = dict
+  "name" ($wcIssuerRef.name | default $ciName)
+  "kind" ($wcIssuerRef.kind | default "ClusterIssuer")
+}}
+{{- $wcDomains := list }}
+{{- range $d := ($wc.domains | default list) }}
+  {{- $domain := $d.domain }}
+  {{- if not $domain }}{{- continue }}{{- end }}
+  {{- $slug := replace "." "-" $domain }}
+  {{- $secretName := $d.secretName | default (printf "wildcard-%s" $slug) }}
+  {{- $wcDomains = append $wcDomains (dict
+    "domain" $domain
+    "slug" $slug
+    "secretName" $secretName
+    "dnsName" (printf "*.%s" $domain)
+    "certificateName" (printf "wildcard-%s" $slug)
+  ) }}
+{{- end }}
+
+# ==============================================================================
 # ExternalSecrets DX
 # ==============================================================================
 {{- $eso := $spec.externalSecrets | default dict }}
@@ -194,5 +233,12 @@
       "property" ($esoRemoteRef.property | default "")
     )
     "refreshInterval" $esoRefreshInterval
+  )
+  "wildcardCertificate" (dict
+    "enabled" $wcEnabled
+    "namespace" $wcNamespace
+    "renewBefore" $wcRenewBefore
+    "issuerRef" $wcIssuerRef
+    "domains" $wcDomains
   )
 }}

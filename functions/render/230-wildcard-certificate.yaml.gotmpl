@@ -1,0 +1,56 @@
+# code: language=yaml
+#
+# Wildcard cert-manager Certificates.
+#
+# For each entry in spec.wildcardCertificate.domains, compose a Certificate
+# fronting "*.<domain>" in $state.wildcardCertificate.namespace (default
+# istio-ingress). The resulting TLS Secret lives in the same namespace so the
+# platform Gateway listener's certificateRefs resolve natively (Gateway API
+# requires certificate Secrets to live in the Gateway's namespace).
+#
+# Issuance uses this stack's DNS-01 ClusterIssuer by default (overridable via
+# spec.wildcardCertificate.issuerRef). The ClusterIssuer is composed
+# alongside in 220-cluster-issuer.yaml.gotmpl — Crossplane reconciles both
+# independently; cert-manager will retry issuance until the ClusterIssuer is
+# Ready.
+#
+
+{{- if and $state.wildcardCertificate.enabled $state.certManager.enabled }}
+{{- range $i, $wc := $state.wildcardCertificate.domains }}
+
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  name: {{ $state.name }}-wildcard-cert-{{ $wc.slug }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "wildcard-cert-%s" $wc.slug) }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  forProvider:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: {{ $wc.certificateName }}
+        namespace: {{ $state.wildcardCertificate.namespace }}
+        labels: {{ $state.labels | toJson }}
+      spec:
+        secretName: {{ $wc.secretName }}
+        dnsNames:
+        - {{ $wc.dnsName | quote }}
+        issuerRef:
+          name: {{ $state.wildcardCertificate.issuerRef.name }}
+          kind: {{ $state.wildcardCertificate.issuerRef.kind }}
+        renewBefore: {{ $state.wildcardCertificate.renewBefore }}
+        privateKey:
+          algorithm: RSA
+          size: 2048
+          rotationPolicy: Always
+  providerConfigRef:
+    name: {{ $state.kubernetes.providerConfigRef.name }}
+    kind: {{ $state.kubernetes.providerConfigRef.kind }}
+
+{{- end }}
+{{- end }}

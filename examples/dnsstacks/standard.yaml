@@ -25,6 +25,14 @@ spec:
     enabled: true
     email: platform@example.com
     staging: false
+  # Compose wildcard Certificates per zone so the platform Gateway can
+  # terminate TLS for *.<zone> without per-app cert plumbing. Secrets land
+  # in istio-ingress (where the platform Gateway lives) by default.
+  wildcardCertificate:
+    enabled: true
+    domains:
+    - domain: example.com
+    - domain: internal.example.com
   # Pulls the Cloudflare API token from AWS Secrets Manager via the
   # platform-wide hops-aws-secrets-manager ClusterSecretStore.
   externalSecrets:

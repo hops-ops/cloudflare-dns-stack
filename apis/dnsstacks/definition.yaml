@@ -157,6 +157,72 @@ spec:
                   staging:
                     description: Use Let's Encrypt staging server. Defaults to false.
                     type: boolean
+              wildcardCertificate:
+                description: |
+                  Compose one or more wildcard `cert-manager.io/v1 Certificate`
+                  resources, each fronting a zone (e.g. `*.ops.com.ai`). The
+                  Certificate (and its resulting TLS Secret) lives in
+                  `namespace` — by default `istio-ingress`, where the platform
+                  Gateway resolves listener `certificateRefs`. Issuance uses
+                  this stack's DNS-01 ClusterIssuer; no per-app cert plumbing
+                  required. Requires `certManager.enabled`.
+
+                  Multiple `domains[]` entries cover both apex wildcards
+                  (`ops.com.ai` → covers `auth.ops.com.ai`, `web.ops.com.ai`)
+                  and per-cluster wildcards (`patlocal.ops.com.ai` → covers
+                  `auth.patlocal.ops.com.ai`, etc.) without schema churn.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to compose wildcard Certificates. Defaults to false.
+                    type: boolean
+                    default: false
+                  namespace:
+                    description: |
+                      Namespace where the composed Certificates (and their
+                      resulting Secrets) live. Defaults to "istio-ingress" —
+                      the namespace where the platform Gateway resolves
+                      listener certificateRefs.
+                    type: string
+                  issuerRef:
+                    description: |
+                      Issuer reference. Defaults to {kind: ClusterIssuer,
+                      name: clusterIssuer.name} — the issuer composed by this
+                      DNSStack itself. Override to consume an external issuer.
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      kind:
+                        type: string
+                        enum:
+                        - ClusterIssuer
+                        - Issuer
+                  renewBefore:
+                    description: |
+                      How long before expiry cert-manager should attempt
+                      renewal. Defaults to "360h" (15 days).
+                    type: string
+                  domains:
+                    description: |
+                      Zones to wildcard. Each entry produces one Certificate
+                      with `dnsNames: ["*.<domain>"]` and a derived Secret.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        domain:
+                          description: |
+                            Zone to wildcard. Example "ops.com.ai" → cert
+                            covers "*.ops.com.ai" (single-level wildcard).
+                          type: string
+                        secretName:
+                          description: |
+                            Secret name for the TLS material. Defaults to
+                            "wildcard-<domain-with-dots-as-dashes>".
+                          type: string
+                      required:
+                      - domain
               externalSecrets:
                 description: ExternalSecrets DX. When enabled, the stack composes an ExternalSecret resource per consumer namespace (external-dns and, when certManager.enabled, the cert-manager namespace) to populate the apiToken Secret from a backend.
                 type: object
