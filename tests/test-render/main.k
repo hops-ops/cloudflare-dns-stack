@@ -45,6 +45,10 @@ _items = [
                             values = {
                                 provider.name = "cloudflare"
                                 domainFilters = ["example.com"]
+                                resources = {
+                                    requests = {cpu = "15m", memory = "100Mi"}
+                                    limits = {cpu = "100m", memory = "256Mi"}
+                                }
                                 env = [{
                                     name = "CF_API_TOKEN"
                                     valueFrom.secretKeyRef = {

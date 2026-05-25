@@ -12,11 +12,30 @@
 
 {{- /* Merge domainFilters from spec.domains into ExternalDNS values when */}}
 {{- /* the user hasn't gone full overrideAllValues.                       */}}
+{{- $ednsDefaults := dict
+  "fullnameOverride" "external-dns"
+  "provider" (dict "name" "cloudflare")
+  "sources" $state.externalDNS.sources
+  "policy" "upsert-only"
+  "registry" "txt"
+  "interval" "1m"
+  "resources" (dict
+    "requests" (dict "cpu" "15m" "memory" "100Mi")
+    "limits" (dict "cpu" "100m" "memory" "256Mi")
+  )
+  "env" (list (dict
+    "name" "CF_API_TOKEN"
+    "valueFrom" (dict "secretKeyRef" (dict
+      "name" $state.apiToken.secretName
+      "key" $state.apiToken.secretKey
+    ))
+  ))
+}}
 {{- $ednsValues := $state.externalDNS.values | default dict }}
 {{- if and (gt (len $state.domainNames) 0) (eq (len $state.externalDNS.overrideAllValues) 0) }}
-  {{- $domainValues := dict "domainFilters" $state.domainNames }}
-  {{- $ednsValues = mergeOverwrite $domainValues $ednsValues }}
+  {{- $ednsDefaults = mergeOverwrite $ednsDefaults (dict "domainFilters" $state.domainNames) }}
 {{- end }}
+{{- $mergedEdnsValues := mergeOverwrite $ednsDefaults $ednsValues }}
 
 ---
 apiVersion: helm.m.crossplane.io/v1beta1
@@ -39,22 +58,7 @@ spec:
       {{- toYaml $state.externalDNS.overrideAllValues | nindent 6 }}
     {{- else }}
     values:
-      fullnameOverride: external-dns
-      provider:
-        name: cloudflare
-      sources: {{ toJson $state.externalDNS.sources }}
-      policy: upsert-only
-      registry: txt
-      interval: 1m
-      env:
-        - name: CF_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: {{ $state.apiToken.secretName }}
-              key: {{ $state.apiToken.secretKey }}
-      {{- if $ednsValues }}
-      {{- toYaml $ednsValues | nindent 6 }}
-      {{- end }}
+      {{- toYaml $mergedEdnsValues | nindent 6 }}
     {{- end }}
   rollbackLimit: 3
   providerConfigRef:
