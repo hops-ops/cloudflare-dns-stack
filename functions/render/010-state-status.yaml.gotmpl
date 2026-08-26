@@ -5,27 +5,53 @@
 
 {{- $observed := $.observed.resources | default dict }}
 
-# Check if external-dns helm release is ready
-{{- $ednsHelmObs := get $observed "helm-release-external-dns" | default dict }}
-{{- $ednsHelmResource := $ednsHelmObs.resource | default dict }}
-{{- $ednsHelmStatus := $ednsHelmResource.status | default dict }}
-{{- $ednsHelmConditions := $ednsHelmStatus.conditions | default list }}
-{{- $ednsHelmReady := false }}
-{{- range $cond := $ednsHelmConditions }}
-  {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
-    {{- $ednsHelmReady = true }}
+# Build the exact set of resources rendered by the effective spec. Disabled
+# components do not hold readiness false; every enabled component must report
+# Ready=True before the stack reports ready.
+{{- $required := list }}
+{{- if $state.externalDNS.enabled }}
+  {{- $required = append $required "helm-release-external-dns" }}
+{{- end }}
+{{- if $state.externalSecrets.enabled }}
+  {{- $required = append $required "external-secret-edns" }}
+  {{- if $state.certManager.enabled }}
+    {{- $required = append $required "external-secret-cm" }}
+  {{- end }}
+{{- end }}
+{{- if and $state.clusterIssuer.enabled $state.certManager.enabled }}
+  {{- $required = append $required "cluster-issuer" }}
+  {{- $required = append $required "usage-cm-cluster-issuer" }}
+{{- end }}
+{{- if and $state.wildcardCertificate.enabled $state.certManager.enabled }}
+  {{- range $wc := $state.wildcardCertificate.domains }}
+    {{- $required = append $required (printf "wildcard-cert-%s" $wc.slug) }}
+  {{- end }}
+{{- end }}
+
+# Extract readiness from each required resource's authoritative Ready condition.
+{{- $components := dict }}
+{{- $ready := true }}
+{{- range $key := $required }}
+  {{- $entry := get $observed $key | default dict }}
+  {{- $resource := $entry.resource | default dict }}
+  {{- $status := $resource.status | default dict }}
+  {{- $componentReady := false }}
+  {{- range ($status.conditions | default list) }}
+    {{- if and (eq .type "Ready") (eq .status "True") }}
+      {{- $componentReady = true }}
+    {{- end }}
+  {{- end }}
+  {{- $components = set $components $key (dict "ready" $componentReady) }}
+  {{- if not $componentReady }}
+    {{- $ready = false }}
   {{- end }}
 {{- end }}
 
 # ==============================================================================
 # Compute status output
 # ==============================================================================
-{{- $ready := false }}
-
 {{- $state = set $state "observed" (dict
-  "externalDNS" (dict
-    "helmReady" $ednsHelmReady
-  )
+  "components" $components
 ) }}
 
 {{- $state = set $state "status" (dict
