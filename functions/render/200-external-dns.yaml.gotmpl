@@ -51,6 +51,7 @@ spec:
     chart:
       name: external-dns
       repository: https://kubernetes-sigs.github.io/external-dns/
+      # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
       version: 1.20.0
     namespace: {{ $state.externalDNS.namespace }}
     {{- if gt (len $state.externalDNS.overrideAllValues) 0 }}
