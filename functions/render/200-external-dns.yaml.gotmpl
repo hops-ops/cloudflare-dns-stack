@@ -12,12 +12,17 @@
 
 {{- /* Merge domainFilters from spec.domains into ExternalDNS values when */}}
 {{- /* the user hasn't gone full overrideAllValues.                       */}}
+{{- /* BREAKING CHANGE: drop the alpha pin from #13 and use the 1.22 GA
+       default (`external-dns.kubernetes.io/`). Consumers MUST retarget
+       annotations from `external-dns.alpha.kubernetes.io/*` to
+       `external-dns.kubernetes.io/*` before or while upgrading this
+       package major. */ -}}
 {{- $ednsDefaults := dict
   "fullnameOverride" "external-dns"
   "provider" (dict "name" "cloudflare")
   "sources" $state.externalDNS.sources
   "policy" "upsert-only"
-  "annotationPrefix" "external-dns.alpha.kubernetes.io/"
+  "annotationPrefix" "external-dns.kubernetes.io/"
   "registry" "txt"
   "interval" "1m"
   "resources" (dict
